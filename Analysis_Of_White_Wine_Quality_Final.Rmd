@@ -1,0 +1,668 @@
+Analysis of White Wine Quality by Hyoung-Gyu Lee
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Load all of the packages that you end up using
+# in your analysis in this code chunk.
+
+# Notice that the parameter "echo" was set to FALSE for this code chunk.
+# This prevents the code from displaying in the knitted HTML output.
+# You should set echo=FALSE for all code chunks in your file.
+library(ggplot2)
+library(plyr)
+library(GGally)
+library(scales)
+library(memisc)
+library(corrplot)
+library("PerformanceAnalytics")
+library(Hmisc)
+library(gridExtra)
+
+```
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+                      echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+# Data Overview
+This report explores a dataset containing 11 chemical aspects of 4898 white wines and their quality measured by experts. There are no missing values.
+```{r echo=FALSE, Load_the_Data}
+# Load the Data
+ww <- read.csv('wineQualityWhites.csv')
+dim(ww)
+str(ww)
+summary(ww)
+```
+
+# Univariate Plots Section
+```{r echo=FALSE, Univariate_Plots_Quality}
+ggplot(aes(x = quality), data = ww) + 
+  geom_histogram(binwidth = 1)+  
+  ggtitle('Quality Distribution') +
+  theme(plot.title = element_text(hjust=0.5))
+
+```
+
+The Maximum Value for Quality is 9 and the Minimum value is 3. However, the vast majority of wine is in the 5 to 7 range. The variation looks close to normal.
+
+However, these are ratings measured by experts. In other words, they are ordinal values; a wine with rating 9 is NOT three times better than a wine that received a score of 3. To better analyze the data set, I decided to add a new variable that classifies a wine into one of three categories: "Low" "Average" and "Excellent" A wine with a score below six (so 5 or less) is categorized as a low quality wine, while a wine with score 6 is considered to be average, and 7, 8, 9 being excellent. 
+
+```{r echo=FALSE, Univariate_Plots_Level}
+level <- function(x) {
+    if(x==3 | x==4 | x==5){
+      "Low"
+    }else if(x == 6){
+      "Average"
+    }else{
+      "Excellent"
+    }
+}
+
+
+ww$level <- apply(ww['quality'],1,level)
+
+ww <- transform(ww, level = factor(level, 
+    levels = c("Low", "Average", "Excellent"), ordered = TRUE))
+table(ww$level)
+
+ggplot(aes(x = level), data = ww) + 
+  geom_bar() +  
+  ggtitle('Levels Distribution') +
+  theme(plot.title = element_text(hjust=0.5))
+```
+
+Now, here are some graphic displays of distributions of chemical characteristics.
+
+```{r echo=FALSE, Univariate_Plots_Outliers}
+ggplot(aes(x = fixed.acidity), data = ww) + 
+  geom_histogram(binwidth = 0.3) +  
+  ggtitle('Fixed Acidity Distribution') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x = volatile.acidity), data = ww) + 
+  geom_histogram(binwidth = 0.05)+  
+  ggtitle('Volatile Acidity Distribution') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x = citric.acid), data = ww) + 
+  geom_histogram(binwidth = 0.05) +
+  ggtitle('Citric Acidity Distribution') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x = residual.sugar), data = ww) + 
+  geom_histogram(binwidth = 1)+  
+  ggtitle('Residual Sugar Distribution') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x = chlorides), data = ww) + 
+  geom_histogram(binwidth = 0.01) +  
+  ggtitle('Chlorides Distribution') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x = free.sulfur.dioxide), data = ww) + 
+  geom_histogram(binwidth = 5) +
+  ggtitle('Free Sulfur Dioxide Distribution') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x = total.sulfur.dioxide), data = ww) + 
+  geom_histogram(binwidth = 5) +  
+  ggtitle('Total SO2 Distribution') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x = density), data = ww) + 
+  geom_histogram(binwidth = 0.001) +  
+  ggtitle('Density') +
+  theme(plot.title = element_text(hjust=0.5))
+
+```
+
+For variables fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, and total sulfur dioxide, it was quite visible that few outliers distort general shapes of the distributions. Therefore, new graphs were drwan excluding values outside the 1~99th percentile range.
+
+```{r echo=FALSE, Univariate_Plots_Normal}
+
+ggplot(aes(x = volatile.acidity), data = ww) + 
+  geom_histogram(binwidth = 0.01) +
+  coord_cartesian(xlim = c(quantile(ww$volatile.acidity, 0.01),
+                           quantile(ww$volatile.acidity, 0.99))) +  
+  ggtitle('Volatile Acidity Distribution w/o Outliers') +
+  theme(plot.title = element_text(hjust=0.5))
+
+
+ggplot(aes(x = free.sulfur.dioxide), data = ww) + 
+  geom_histogram(binwidth = 5)+
+  coord_cartesian(xlim = c(quantile(ww$free.sulfur.dioxide, 0.01),
+                           quantile(ww$free.sulfur.dioxide, 0.99))) +  
+  ggtitle('Free SO2 Distribution w/o Outliers') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x = total.sulfur.dioxide), data = ww) + 
+  geom_histogram(binwidth = 5)+
+  coord_cartesian(xlim = c(quantile(ww$total.sulfur.dioxide, 0.01), 
+                           quantile(ww$total.sulfur.dioxide, 0.99))) +  
+  ggtitle('Total SO2 w/o Outliers') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x = pH), data = ww) + 
+  geom_histogram(binwidth = 0.1) +  
+  ggtitle('pH Distritbution') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x = sulphates), data = ww) + 
+  geom_histogram(binwidth = 0.03) +
+  coord_cartesian(xlim = c(quantile(ww$sulphates, 0.01),
+                           quantile(ww$sulphates, 0.99)))+  
+  ggtitle('Sulphate Distribution w/o Outliers') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x = fixed.acidity), data = ww) + 
+  geom_histogram(binwidth = 0.3) +
+  coord_cartesian(xlim = c(quantile(ww$fixed.acidity, 0.01), 
+                           quantile(ww$fixed.acidity, 0.99))) +  
+  ggtitle('Fixed Acidity Distribution w/o Outliers') +
+  theme(plot.title = element_text(hjust=0.5))
+
+```
+
+The distributions for volatile acidity, free sulfur dioxide, total sulfur dioxide, pH, sulphates and fixed acidity seemed close to normal when outliers were excluded. 
+
+
+```{r echo=FALSE, Univariate_Plots_Citric_Acid}
+ggplot(aes(x = citric.acid), data = ww) + 
+  geom_histogram(binwidth = 0.05)+
+  coord_cartesian(xlim = c(quantile(ww$citric.acid, 0.01), 
+                           quantile(ww$citric.acid, 0.99))) +  
+  ggtitle('Citric Acid Distribution w/o Outliers') +
+  theme(plot.title = element_text(hjust=0.5))
+
+
+```
+
+However, there was a strange level of citric acid that unusually many wines shared. 215 wines had 0.49 g/dm^3 of citric acid in it. This is very peculiar.
+
+```{r echo=FALSE, Univariate_Plots_Residual_Sugar}
+
+ggplot(aes(x = residual.sugar), data = ww) + 
+  geom_histogram(binwidth = 0.1)+
+  scale_x_log10() +
+  ggtitle('Log Transformed Residual Sugar') +
+  theme(plot.title = element_text(hjust=0.5))
+
+summary(ww$residual.sugar)
+
+```
+
+The distribution for residual sugar is also interesting. It is skewed to the right to a high degree. However, when log transform was conducted to the distribution, it was visible that the distribution was bimodal. There was only one wine however, that had more than 45 g/dm^3 of residual sugar; therefore, there was only one wine that could be considered "sweet" according to the description in the data set.
+
+
+
+```{r echo=FALSE, Univariate_Plots_Chlorides}
+
+ggplot(aes(x = chlorides), data = ww) + 
+  geom_histogram(binwidth = 0.01)+
+  coord_cartesian(xlim = c(quantile(ww$chlorides, 0.01), 
+                           quantile(ww$chlorides, 0.99)))+  
+  ggtitle('Chlorides Distribution w/o Outliers') +
+  theme(plot.title = element_text(hjust=0.5))
+
+```
+
+Amount of chlorides in a wine take a distribution that resembles a normal curve closely. However, it is notable that there are many wines beyond 0.08 level distributed consistently. 
+
+```{r echo=FALSE, Univariate_Plots_Alcohol}
+
+
+ggplot(aes(x = alcohol), data = ww) + 
+  geom_histogram(binwidth = 0.5) +  
+  ggtitle('Alcohol Distribution w/o Outliers') +
+  theme(plot.title = element_text(hjust=0.5))
+
+```
+
+Alcohol levels in wines range from 8 to about 14. The distribution looks slightly skewed to the right. 
+
+```{r echo=FALSE, Univariate_Plots_Density}
+
+
+ggplot(aes(x = density), data = ww) + 
+  geom_histogram(binwidth = 0.001) +
+  ggtitle('Density Distribution w/o Outliers') +
+  theme(plot.title = element_text(hjust=0.5))+
+  coord_cartesian(xlim = c(quantile(ww$density, 0.01), 
+                           quantile(ww$density, 0.99)))
+
+summary(ww$density)
+
+```
+
+Density of wines is very close to 1. Largest variation is only 0.0390. Nonetheless, there are some variations due to chemical compounds in wines. 
+
+
+# Univariate Analysis
+
+### What is the structure of your dataset?
+
+This dataset is a dataframe with 4989 rows and 13 columns. Therefore, it has data of 4989 white wines and 13 characteristics associated with them. Although there are 13 variables in the data set, since variable X is just a numbering of all the wines, there are essentially 12 variables in the data set. Moreover, 11 variables such as pH, alcohol, etc. are independent variables and 1 vairable is a dependent variable or a resulting variable which is the quality variable.
+
+   1 - fixed acidity (tartaric acid - g / dm^3)
+   
+   2 - volatile acidity (acetic acid - g / dm^3)
+   
+   3 - citric acid (g / dm^3)
+   
+   4 - residual sugar (g / dm^3)
+   
+   5 - chlorides (sodium chloride - g / dm^3)
+   
+   6 - free sulfur dioxide (mg / dm^3)
+   
+   7 - total sulfur dioxide (mg / dm^3)
+   
+   8 - density (g / cm^3)
+   
+   9 - pH
+   
+   10 - sulphates (potassium sulphate - g / dm3)
+   
+   11 - alcohol (% by volume)
+   
+   Output variable (based on sensory data): 
+   
+   12 - quality (score between 0 and 10)
+
+### What is/are the main feature(s) of interest in your dataset?
+
+At first, I wanted to find a variable or variables that are most closely related to the quality of wine.  However, as I will explain through out this report, such attempt was futile. In any case, I had some variables that I suspected to have high correlations. I will focus on residual sugar, citric acid, and chlorides as they are chemical compositions that determine important aspects of tastes: sweetness, flavor, and saltiness of wine.
+
+### What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
+
+Intuitively, density and alcohol are variables that do not seem to affect quality of wine. Rather, they will be resulting variables that are affected by other variables such as residual sugar and sulphates. It will interesting to see how the independent variables are actually correlated.  
+
+### Did you create any new variables from existing variables in the dataset?
+
+I created a categorical variable called "Level." As I mentioned, as the quality variable is an ordinal variable, using categorical variable may help visualize which factor affects quality. Therefore, I created three categories "Low", "Average",  and "Excellent" and placed wines accordingly. 
+
+### Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?
+
+For many distributions, a few outliers distorted the shape of distributions. Therefore, I chose to graph data within 1% to 99% percentile range. Secondly, I log-transformed residual sugar data. The distribution for residual sugar was highly skewed to the right. Log transforming this data revealed that the distribution was bimodal.
+
+
+
+
+
+
+# Bivariate Plots Section
+```{r echo=FALSE, Bivariate_Plots_Correlation}
+
+# Remove numbering variable and level variable 
+ww_for_corr<- subset(ww, select = -c(X, level))
+res <- cor(ww_for_corr)
+round(res, 2)
+
+
+corrplot(res, method="color")
+```
+
+Study of correlations between all the variables reveal that for most variables, the correlations were actually quite low. This is especially notable for correlation between quality and other variables. This is what is expected. I suspected earlier that quality is not likely to be correlated to a single variable.
+
+```{r echo=FALSE, Bivariate_Plots_Significant_Correlation}
+# ++++++++++++++++++++++++++++
+# flattenCorrMatrix
+# ++++++++++++++++++++++++++++
+# cormat : matrix of the correlation coefficients
+# pmat : matrix of the correlation p-values
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row = rownames(cormat)[row(cormat)[ut]],
+    column = rownames(cormat)[col(cormat)[ut]],
+    cor  =(cormat)[ut],
+    p = pmat[ut]
+    )
+}
+
+
+
+# Produce correlation table with new data set
+res2<-rcorr(as.matrix(ww_for_corr))
+
+
+# Insignificant correlations are leaved blank
+corrplot(res2$r, order="hclust", 
+         p.mat = res2$P, sig.level = 0.01)
+
+```
+
+When all the correlations deemed insignificant (alpha=0.01) are crossed out, not many correlations survive. However, nonetheless, the correlations provide some interesting insights. We will look at some higher correlations and their implications. 
+
+```{r echo=FALSE, Bivariate_Plots_Correlation_Table}
+flattenCorrMatrix(res2$r, res2$P)[with(flattenCorrMatrix(res2$r, res2$P), order(-abs(cor))),]
+
+```
+
+Among top 5 correlations, three were related to density. Correlation between density and residual sugar was 0.84 ranking number one on the list while correlation between density and alcohol was -0.78 and correlation between total SO2 and density was 0.53 ranking two and four respectively. Considering the third largest correlation was between free SO2 and total SO2, two variables that are obviously correlated, it can be concluded that density has notably high correlations with other variables. 
+
+```{r echo=FALSE, Bivariate_Plots_Density}
+ggplot(aes(x=residual.sugar, y=density), data=ww)+
+  geom_jitter(alpha=0.1) +
+  coord_cartesian(xlim=c(quantile(ww$residual.sugar, 0.01),
+                         quantile(ww$residual.sugar, 0.99)), 
+                  ylim=c(0.985, 1.005))+
+  geom_smooth() +  
+  ggtitle('Residual Sugar vs. Density') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x=alcohol, y=density), data=ww) +
+  geom_jitter(alpha=0.1) +
+  coord_cartesian(ylim=c(0.985, 1.005)) +
+  geom_smooth() +  
+  ggtitle('Alcohol vs. Density') +
+  theme(plot.title = element_text(hjust=0.5))
+
+ggplot(aes(x=total.sulfur.dioxide, y=density), data=ww) +
+  geom_jitter(alpha=0.1) +
+  coord_cartesian(ylim=c(0.985, 1.005),
+                  xlim=c(quantile(ww$total.sulfur.dioxide, 0.01),
+                         quantile(ww$total.sulfur.dioxide, 0.99))) +
+  geom_smooth() +  
+  ggtitle('Total SO2 vs. Density') +
+  theme(plot.title = element_text(hjust=0.5))
+
+```
+
+The correlations are quite strong. Since sugar and SO2 are more dense than water, density should increase if wine contains more sugar or SO2. In contrast, density should decrease if wine has higher alcohol level since alcohol is less dense than water. Therefore, these correlations make sense. 
+
+```{r echo=FALSE, Bivariate_Plots_Alcohol}
+ggplot(aes(x=residual.sugar, y=alcohol), data=ww)+
+  geom_jitter(alpha=0.1) +
+  coord_cartesian(xlim=c(quantile(ww$residual.sugar, 0.01), 
+                         quantile(ww$residual.sugar, 0.99)))+
+  geom_smooth() +  
+  ggtitle('Residual Sugar vs. Alcohol') +
+  theme(plot.title = element_text(hjust=0.5))
+  
+
+ggplot(aes(x=total.sulfur.dioxide, y=alcohol), data=ww) +
+  geom_jitter(alpha=0.1) +
+  geom_smooth() +  
+  ggtitle('Total SO2 vs. Alcohol') +
+  theme(plot.title = element_text(hjust=0.5))+
+  coord_cartesian( xlim=c(quantile(ww$total.sulfur.dioxide, 0.01),
+                          quantile(ww$total.sulfur.dioxide, 0.99)))
+```
+
+Alcohol is produced from fermantation. Since amount of sugar and yeast activity determines fermantation, alcohol should be correlated with them. Residual sugar will be negatively correlated with amount of sugar used during fermantation. Furthermore, as SO2 is an anti-microbial agent, the amount of SO2 will be negatively correlated with the degree of fermantation taken place. Therefore, negative correlations between alcohol and both variables make sense.
+
+
+```{r echo=FALSE, Bivariate_Plots_Quality}
+ggplot(aes(x=alcohol, y=quality), data=ww)+
+  geom_jitter(alpha=.1) +
+  geom_smooth() +  
+  ggtitle('Alcohol vs. Quality') +
+  theme(plot.title = element_text(hjust=0.5))
+  
+
+ggplot(aes(x=density, y=quality), data=ww) +
+  geom_jitter(alpha=.3) +
+  geom_smooth() +  
+  ggtitle('Density vs. Quality') +
+  theme(plot.title = element_text(hjust=0.5)) +
+  coord_cartesian(xlim = c(quantile(ww$density, 0.01),
+                           quantile(ww$density, 0.99)))
+```
+
+Two variables most closely related to quality are density and alcohol. However, scatterplots do not reveal the relationship clearly. Therefore, boxplots were drawn using levels instead of quality measures.
+
+```{r echo=FALSE, Bivariate_Plots_Level1}
+ggplot(aes(y=alcohol, x=level), data=ww) +
+  geom_boxplot(aes(fill=level)) + 
+  ggtitle('Level vs. Alcohol') +
+  theme(plot.title = element_text(hjust=0.5)) +
+  coord_cartesian(ylim = c(quantile(ww$alcohol, 0.01), 
+                           quantile(ww$alcohol, 0.99)))
+
+ggplot(aes(y=density, x=level), data=ww) +
+  geom_boxplot(aes(fill=level)) + 
+  ggtitle('Level vs. Density') +
+  theme(plot.title = element_text(hjust=0.5)) +
+  coord_cartesian(ylim = c(quantile(ww$density, 0.01), 
+                           quantile(ww$density, 0.99)))
+```
+
+Now, it is visible that higher quality wines tend to have more alcohol but are less dense. However, as seen before, if a wine has more alcohol, it is going to be less dense. Moreover, the two variables closely related are themselves variables that are connected with several other variables as we have explored previously. Therefore, it can be concluded that no single variable determines quality of wine.  
+
+```{r echo=FALSE, Bivariate_Plots_Level2}
+ggplot(aes(y=residual.sugar, x=level), data=ww) +
+  geom_boxplot(aes(fill=level)) + 
+  ggtitle('Level vs. Residual Sugar') + 
+  theme(plot.title = element_text(hjust=0.5)) +
+  coord_cartesian(ylim = c(quantile(ww$residual.sugar, 0.01), 
+                           quantile(ww$residual.sugar, 0.99)))
+  
+
+ggplot(aes(y=citric.acid, x=level), data=ww) +
+  geom_boxplot(aes(fill=level)) + 
+  ggtitle('Level vs. Citric Acid') +
+  theme(plot.title = element_text(hjust=0.5)) +
+  coord_cartesian(ylim = c(quantile(ww$citric.acid, 0.01), 
+                           quantile(ww$citric.acid, 0.99)))
+
+
+
+
+ggplot(aes(y=chlorides, x=level), data=ww) +
+  geom_boxplot(aes(fill=level)) + 
+  ggtitle('Level vs. Chlorides')+
+  theme(plot.title = element_text(hjust=0.5)) +
+  coord_cartesian(ylim = c(quantile(ww$chlorides, 0.01), 
+                           quantile(ww$chlorides, 0.99)))
+
+
+
+```
+Excellent wines have lower median value for residual sugar and chlorides but the median values for citric acid do not differ greatly across different levels of wine. However, one thing distingushably different for excellent wines is that excellent wines have smaller variations in all three variables. Perhaps, it is a moderate amount of everything that makes excellent wine.
+
+
+
+# Bivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?
+
+Correlations between various variables and quality were not very strong. In fact, the strongest correlations between a variable and quality occurred between density and quality and alcohol and quality. However, even those correlations were not strong. But, when graphs were drwan using categorical variables, levels, the relationship became visible. Higher quality wines tend to have more alcohol but are less dense.
+
+Further analysis revealed that median values for residual sugar, citric acid, and chlorides do not differ greatly across different levels of wine. However, great wines have much smaller variations in all three variables as shown by the box plots. This led me to a new suspicion that what makes a wine a great wine is the blending of several tastes; in other words, a moderate amount of every feature makes an excellent wine. This will be investigated further in Multivariate Analysis.
+
+### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?
+
+Among top 4 correlations, three were related to density. Considering the third largest correlation was between free SO2 and total SO2, two variables that are obviously correlated, it can be concluded that density has notably high correlations with other variables. But, of course, density changes as substances with different density is added to the liquid (sugar being more dense and alcohol being less dense), these correlations make sense.
+
+Also, alcohol was highly correlated with residual sugar and total amount of SO2. since amount of sugar and yeast activity determines fermantation, alcohol, a produce of fermentation, should be correlated with them. Residual sugar will be negatively correlated with amount of sugar used during fermantation. Furthermore, as SO2 is an anti-microbial agent, the amount of SO2 will be negatively correlated with the degree of fermantation taken place. Therefore, negative correlations between alcohol and both variables make sense.
+
+### What was the strongest relationship you found?
+Correlation between density and residual sugar was 0.84 ranking number one on the list. Since sugar is more dense than water, density should increase if wine contains more sugar. Thus, the relationship did not deviate from what was expected. 
+
+
+
+# Multivariate Plots Section
+
+```{r echo=FALSE, Multivariate_Plots_Sugar_Citric_Acid}
+ggplot(aes(x = residual.sugar, y = citric.acid, color = level), data = ww) + 
+  geom_point(size = 5, position = 'jitter', alpha=0.3) +
+  scale_color_brewer(type = 'qual', palette = "Set1",
+                     guide = guide_legend(title = 'Level', reverse = T,
+                                          override.aes = list(alpha = 1, size = 2))) +  
+  coord_cartesian(ylim=c(quantile(ww$citric.acid, 0.01), 
+                         quantile(ww$citric.acid, 0.99))) +
+  scale_x_log10() +  
+  ggtitle('Residual Sugar vs Citric Acid by Levels') +
+  theme(plot.title = element_text(hjust=0.5)) 
+```
+
+```{r echo=FALSE, Multivariate_Plots_Sugar_Chlorides}
+ggplot(aes(x = residual.sugar, y = chlorides, color = level), data = ww) + 
+  geom_point(size = 5, position = 'jitter', aes(color=level), alpha=0.3) +
+  scale_color_brewer(type = 'qual', palette = "Set1",
+                     guide = guide_legend(title = 'Level', reverse = T,
+                                          override.aes = list(alpha = 1, size = 2))) +  
+  coord_cartesian(ylim=c(0.01, quantile(ww$chlorides, 0.99))) +
+  scale_x_log10() +  
+  ggtitle('Residual Sugar vs Chlorides by Levels') +
+  theme(plot.title = element_text(hjust=0.5)) 
+
+```
+
+As visible from the graphs, green dots are located around the center of the distributions When residual sugar and citric acid or chlorides are plotted against one another. When one of the variables, whether it be residual sugar or chlorides or citric acid,  is too high, the dots are blue or red. The high concentration of green dots around the center visually shows that a nice blending of all the flavors makes a wine excellent.  
+
+```{r echo=FALSE, Multivariate_Plots_Free_SO2}
+
+ggplot(aes(x = residual.sugar, y = free.sulfur.dioxide, color = level), data = ww) + 
+  geom_point(size = 5, position = 'jitter', aes(color=level), alpha=0.3) +
+  scale_color_brewer(type = 'qual', palette = "Set1",
+                     guide = guide_legend(title = 'Level', reverse = T,
+                                          override.aes = list(alpha = 1, size = 2))) +  
+  coord_cartesian(ylim=c(quantile(ww$free.sulfur.dioxide, 0.01), 
+                         quantile(ww$free.sulfur.dioxide, 0.99))) +
+  scale_x_log10() + 
+  ggtitle('Residual Sugar vs Free SO2 by Levels') +
+  theme(plot.title = element_text(hjust=0.5)) 
+```
+
+```{r echo=FALSE, Multivariate_Plots_Total_SO2}
+
+ggplot(aes(x = residual.sugar, y = total.sulfur.dioxide, color = level), data = ww) + 
+  geom_point(size = 5, position = 'jitter', alpha=0.3) +
+  scale_color_brewer(type = 'qual', palette = "Set1",
+                     guide = guide_legend(title = 'Level', reverse = T,
+                                          override.aes = list(alpha = 1, size = 2))) +  
+  coord_cartesian(ylim=c(quantile(ww$total.sulfur.dioxide, 0.01), 
+                         quantile(ww$total.sulfur.dioxide, 0.99))) +
+  scale_x_log10() +  
+  ggtitle('Residual Sugar vs Total SO2 by Levels') +
+  theme(plot.title = element_text(hjust=0.5)) 
+
+```
+
+```{r echo=FALSE, Multivariate_Plots_Residual_Sugar}
+
+ggplot(aes(x = residual.sugar, y = volatile.acidity, color = level), data = ww) + 
+  geom_point(size = 5, position = 'jitter', alpha=0.3) +
+  scale_color_brewer(type = 'qual', palette = "Set1",
+                     guide = guide_legend(title = 'Level', reverse = T,
+                                          override.aes = list(alpha = 1, size = 2))) +  
+  coord_cartesian(ylim=c(quantile(ww$volatile.acidity, 0.01),
+                         quantile(ww$volatile.acidity, 0.99))) +
+  scale_x_log10() +  
+  ggtitle('Residual Sugar vs Volatile Acidity by Levels') +
+  theme(plot.title = element_text(hjust=0.5)) 
+
+
+```
+
+```{r echo=FALSE, Multivariate_Plots_Fixed_acidity}
+
+ggplot(aes(x = residual.sugar, y = fixed.acidity, color = level), data = ww) + 
+  geom_point(size = 5, position = 'jitter', alpha=0.3) +
+  scale_color_brewer(type = 'qual', palette = "Set1",
+                     guide = guide_legend(title = 'Level', reverse = T,
+                                          override.aes = list(alpha = 1, size = 2))) +  
+  coord_cartesian(ylim=c(quantile(ww$fixed.acidity, 0.01), 
+                         quantile(ww$fixed.acidity, 0.99))) +
+  scale_x_log10() +  
+  ggtitle('Residual Sugar vs Fixed Acidity by Levels') +
+  theme(plot.title = element_text(hjust=0.5)) 
+
+```
+
+The distributions for free SO2, total SO2, volatile acid, and fixed acid all show similar patterns. Green dots are located around the center of the distritbutions, both horizontally and vertically. However, the central tendency is not as strong for the four variables compared to the distributions made with residual sugar, citric acid, and chlorides.
+
+```{r echo=FALSE, Multivariate_Plots_Sugar_Free_SO2}
+ggplot(aes(x = alcohol, y = density, color = level), data = ww) + 
+  geom_point(size = 5, position = 'jitter', aes(color=level), alpha=0.5) +
+  scale_color_brewer(type = 'qual', palette = "Set1",
+                     guide = guide_legend(title = 'Level', reverse = T,
+                                          override.aes = list(alpha = 1, size = 2))) +  
+  coord_cartesian(ylim=c(quantile(ww$density, 0.01), 
+                         quantile(ww$density, 0.99))) +
+  ggtitle('Density vs Alcohol by Levels') +
+  theme(plot.title = element_text(hjust=0.5)) 
+
+```
+
+When ploitting against density and alcohol, it was visible that excellent wines are located at the section on the lower right corner. This means that excellent wines have higher alcohol concentration and lower density. However, I do not think that having higher dose of alcohol makes a wine excellent. Since most variables are negatively correlated with alcohol, having a large amount of certain variable would mean a decrease in alcohol concentration. Because excellent wines have moderate amount of everything, it will be more likely that they will have higher percentage of alcohol. And as alcohol and density are negatively correlated, excellent wines are bound to have less density values.
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the investigation. Were there features that strengthened each other in terms of looking at your feature(s) of interest?
+
+My new hypothesis from Bivariate Analysis was confirmed. Looking at plots with x variable as residual sugar and y variable as citric acid or chlorides and coloring each dot by levels, I could see that excellent wines were located near the center of the distributions. This meant that excellent wines are wines that have moderate amount of all chemical compounds: not too much and not too little, just the right amount. In fact, the trend was consistent with other chemical characteristics such as free SO2, total SO2, fixed acidity, and volatile acidity.
+
+### Were there any interesting or surprising interactions between features?
+
+Plotting distributions with alcohol and density as variables colored by levels revealed that excellent wines tend to have more alcohol and less density. Since alcohol is negatively correlated with most variables, this makes sense. 
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+```{r echo=FALSE, Plot_One}
+ggplot(aes(x = residual.sugar), data = ww) + 
+  geom_histogram(binwidth = 0.1)+
+  scale_x_log10() +
+  ggtitle('Log Transformed Residual Sugar') +
+  theme(plot.title = element_text(hjust=0.5))
+```
+
+### Description One
+The distribution for residual sugar was skewed to the right to a high degree. However, when log transform was conducted to the distribution, it was visible that the distribution was bimodal. 
+
+### Plot Two
+```{r echo=FALSE, Plot_Two}
+ggplot(aes(y=citric.acid, x=level, fill=level), data=ww) +
+  geom_boxplot() + 
+  scale_fill_brewer(type="div", guide = guide_legend(title = 'Quality Level', reverse = T)) + 
+  ggtitle('Level vs. Citric Acid') +
+  theme(plot.title = element_text(hjust=0.5)) +
+  coord_cartesian(ylim = c(quantile(ww$citric.acid, 0.01), 
+                           quantile(ww$citric.acid, 0.99)))
+
+```
+
+### Description Two
+
+The median values for citric acid did not differ greatly across different levels of wine. However, one thing distingushably different for excellent wines is that excellent wines have smaller variations in all three variables. Perhaps, it is a moderate amount of everything that makes excellent wine.
+
+
+### Plot Three
+```{r echo=FALSE, Plot_Three}
+ggplot(aes(x = residual.sugar, y = citric.acid, color = level), data = ww) + 
+  geom_point(size = 5, position = 'jitter', alpha=0.3) +
+  scale_color_brewer(type = 'qual', palette = "Set1",
+                     guide = guide_legend(title = 'Quality Level', reverse = T,
+                                          override.aes = list(alpha = 1, size = 2))) +  
+  coord_cartesian(ylim=c(quantile(ww$citric.acid, 0.01), 
+                         quantile(ww$citric.acid, 0.99))) +
+  scale_x_log10() +  
+  ggtitle('Residual Sugar vs Citric Acid by Levels') +
+  theme(plot.title = element_text(hjust=0.5)) 
+
+
+```
+
+### Description Three
+
+As visible from the graphs, green dots are located around the center of the distributions When residual sugar and citric acid are plotted against one another. When one of the variables, whether it be residual sugar or chlorides or citric acid, is too high, the dots are blue or red. The high concentration of green dots around the center visually shows that a nice blending of all the flavors makes a wine excellent. 
+
+------
+
+# Reflection
+
+Frankly, I do not drink wine very often and personally cannot distinguish a "good" wine from a "bad" one. I chose this data set because I was curious how to differentiate a good wine from a bad one. Some wines are priced thousands of dollars! What makes such wines so special? Could I make a model that predicts price of a wine based on its chemical characteristics? What is the most important factor that determines the quality of wine. Questions like those were beginning of this research. 
+
+However, when I calculated correlation values for the data in the exploratory phase, I ran into a trouble. As shown above, the correlations were very low for most variables. If a relationship has a correlation whose absolute value is less than 0.3, then it is usually considered "no relationship." Then there were only two variables considered to have a relationship with quality. Moreover, those two variables are alcohol and density, which themselves are dependent variables! 
+
+At first, I suspected that quality of wine is not determined by the wine's chemical compositions. It may be the brand, the appearance of the bottle, or the sommelier's mood at the time that determine the wine's quality. Then I realized that quality variable was an ordinal variable; a wine with quality 9 is not three times better than a wine with quality 3. I tried to make a model that predicts quality value as we did for the diamond data set but only then I realized that price variable and quality variable were innately different. So I constructed a categorical variable, "levels" and looked for trends. Setting up level variable was the key decision that made this research possible.
+
+Several patterns emerged after that. Unlike what I expected, the median values of many variables were not that different for wine of different levels. However, the ranges for the variables were visibly smaller for excellent wines. Indeed, fervid wine drinkers often look for completeness when they drink wine. In other words, they want wines with a variety of tastes blending together. My bivariate analysis and multivariate analysis supports the idea that a good wine is a wine that has a moderate amount of everything.
+
+Lastly, it would be desirable to include price variable for future research. Exploring relationship between price of wine and quality of wine and the relationship between price of wine and chemical composition of wine would be very interesting. Furthermore, I want to conduct a comparative research with red wine data. I suspect that sommeliers look for different blending of tastes in red wine than in white wine and I want to see if that is true. 
