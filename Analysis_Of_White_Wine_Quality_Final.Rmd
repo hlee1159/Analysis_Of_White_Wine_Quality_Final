@@ -608,7 +608,8 @@ Plotting distributions with alcohol and density as variables colored by levels r
 ```{r echo=FALSE, Plot_One}
 ggplot(aes(x = residual.sugar), data = ww) + 
   geom_histogram(binwidth = 0.1)+
-  scale_x_log10() +
+  scale_x_log10(name="Residual Sugar (g / dm^3)") +
+  scale_y_continuous(name="Count")
   ggtitle('Log Transformed Residual Sugar') +
   theme(plot.title = element_text(hjust=0.5))
 ```
@@ -620,6 +621,7 @@ The distribution for residual sugar was skewed to the right to a high degree. Ho
 ```{r echo=FALSE, Plot_Two}
 ggplot(aes(y=citric.acid, x=level, fill=level), data=ww) +
   geom_boxplot() + 
+  scale_y_continuous(name="Citric Acid (g / dm^3)")+
   scale_fill_brewer(type="div", guide = guide_legend(title = 'Quality Level', reverse = T)) + 
   ggtitle('Level vs. Citric Acid') +
   theme(plot.title = element_text(hjust=0.5)) +
@@ -642,7 +644,8 @@ ggplot(aes(x = residual.sugar, y = citric.acid, color = level), data = ww) +
                                           override.aes = list(alpha = 1, size = 2))) +  
   coord_cartesian(ylim=c(quantile(ww$citric.acid, 0.01), 
                          quantile(ww$citric.acid, 0.99))) +
-  scale_x_log10() +  
+  scale_x_log10(name="Residual Sugar (g / dm^3)") + 
+  scale_y_continuous(name="Citric Acid (g / dm^3)")+
   ggtitle('Residual Sugar vs Citric Acid by Levels') +
   theme(plot.title = element_text(hjust=0.5)) 
 
